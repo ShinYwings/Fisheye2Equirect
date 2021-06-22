@@ -9,25 +9,10 @@ mPATH = "./result/IMG_3063_cor.jpg"
 # mPATH = "./equirect/example2.jpg"
 
 def lerp(y0, y1, x0, x1, x):
-    # m = (y1 - y0) / (x1 - x0)
-    # b = y0
 
-    # return m *(x-x0) + b
     m = (y1 - y0) / (x1 - x0)
     b = y0
     return m *(x-x0) + b
-
-def calc_latitude(x0, y0, x1, y1, x):
-    # (256, 0), (512, 1)
-    # x is 0 -> output 1
-    # x is 1 -> output 0
-    m = (y1 - y0) / (x1 - x0)
-    b = y0
-    res =  m *(x-x0) + b
-    res = np.abs(res-1)
-    return res
-
-# TODO offset relocation  
 
 def fisheye2equi(src_img, size, aperture):
 
