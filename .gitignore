@@ -33,9 +33,10 @@
 
 fisheye_cali
 *.jpg
-dots
-correction
-equirect
-fisheye-low-res
-fisheye-raw-res
-tmp-low-res
+*.JPG
+/dots
+/correction
+/equirect
+/fisheye-low-res
+/fisheye-raw-res
+/tmp-low-res
