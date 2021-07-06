@@ -40,3 +40,5 @@ fisheye_cali
 /fisheye-low-res
 /fisheye-raw-res
 /tmp-low-res
+/.vscode
+/__pycache__
