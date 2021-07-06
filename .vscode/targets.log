@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Tue Jun 22 10:19:04 2021
+# Make data base, printed on Tue Jul  6 10:58:10 2021
 
 # Variables
 
@@ -81,7 +81,7 @@ MANAGERPID = 1009
 # environment
 CLUTTER_IM_MODULE = fcitx
 # environment
-VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-d99f5c49-54b8-42a3-a6c3-d3c3b21e329a.sock
+VSCODE_IPC_HOOK_EXTHOST = /run/user/1000/vscode-ipc-502e35c9-574b-4380-ba60-131197baaa53.sock
 # environment
 LC_NAME = ko_KR.UTF-8
 # environment
@@ -231,13 +231,14 @@ MAKE_COMMAND := make
 # environment
 VSCODE_NODE_CACHED_DATA_DIR = /home/shin/.config/Code/CachedData/507ce72a4466fbb27b715c3722558bb15afa9f48
 # environment
-OLDPWD = /home/shin/shinywings/fisheyeCali
+OLDPWD = /home/shin/shinywings
 # default
 .VARIABLES := 
 # automatic
 *F = $(notdir $*)
 # environment
 VSCODE_IPC_HOOK = /run/user/1000/vscode-34e59779-1.57.1-main.sock
+ 
 # makefile
 MAKEFLAGS = pqrR
 # environment
@@ -252,6 +253,8 @@ BREAKPAD_DUMP_LOCATION = /home/shin/.config/Code/exthost Crash Reports
 GDK_BACKEND = x11
 # environment
 LC_PAPER = ko_KR.UTF-8
+# environment
+NO_AT_BRIDGE = 1
 # environment
 QT_ACCESSIBILITY = 1
 # default
@@ -278,13 +281,12 @@ DBUS_STARTER_BUS_TYPE = session
 CONDA_PYTHON_EXE = /home/shin/anaconda3/bin/python
 # environment
 QT4_IM_MODULE = fcitx
- 
 # environment
-GNOME_TERMINAL_SCREEN = /org/gnome/Terminal/screen/89aeb9c4_c130_4e81_96e6_0c3172aa45c3
+GNOME_TERMINAL_SCREEN = /org/gnome/Terminal/screen/ef35e182_76be_47eb_b779_b3a7c47237f0
 # automatic
 ^F = $(notdir $^)
 # environment
-GNOME_TERMINAL_SERVICE = :1.3419
+GNOME_TERMINAL_SERVICE = :1.4299
 # default
 SUFFIXES := 
 # environment
@@ -301,6 +303,7 @@ WINDOWPATH = 2
 LC_IDENTIFICATION = ko_KR.UTF-8
 # environment
 CUDADIR = /usr/local/cuda-11.1
+ 
 # default
 .RECIPEPREFIX := 
 # environment
@@ -316,7 +319,7 @@ DBUS_STARTER_ADDRESS = unix:path=/run/user/1000/bus,guid=68a570ccbd9d0090c33036d
 # environment
 _CE_CONDA = 
 # variable set hash-table stats:
-# Load=151/1024=15%, Rehash=0, Collisions=24/176=14%
+# Load=152/1024=15%, Rehash=0, Collisions=24/177=14%
 
 # Pattern-specific Variable Values
 
@@ -324,9 +327,9 @@ _CE_CONDA =
 
 # Directories
 
-# . (device 66307, inode 103293256): 13 files, 2 impossibilities.
+# . (device 66307, inode 103293256): 33 files, 2 impossibilities.
 
-# 13 files, 2 impossibilities in 1 directories.
+# 33 files, 2 impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -379,12 +382,12 @@ clean:
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 24 / storage = 226 B / avg = 9 B
-# current buf: size = 8162 B / used = 226 B / count = 24 / avg = 9 B
+# strcache buffers: 1 (0) / strings = 44 / storage = 486 B / avg = 11 B
+# current buf: size = 8162 B / used = 486 B / count = 44 / avg = 11 B
 
-# strcache performance: lookups = 35 / hit rate = 31%
+# strcache performance: lookups = 55 / hit rate = 20%
 # hash-table stats:
-# Load=24/8192=0%, Rehash=0, Collisions=1/35=3%
-# Finished Make data base on Tue Jun 22 10:19:04 2021
+# Load=44/8192=1%, Rehash=0, Collisions=1/55=2%
+# Finished Make data base on Tue Jul  6 10:58:10 2021
 
  

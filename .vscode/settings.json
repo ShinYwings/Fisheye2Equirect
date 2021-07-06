@@ -1,6 +1,18 @@
 {
     "makefile.extensionOutputFolder": "./.vscode",
     "files.associations": {
-        "cstdio": "cpp"
+        "cstdio": "cpp",
+        "iostream": "cpp",
+        "ostream": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "initializer_list": "cpp",
+        "string_view": "cpp",
+        "utility": "cpp",
+        "cmath": "cpp",
+        "deque": "cpp",
+        "vector": "cpp",
+        "*.tcc": "cpp",
+        "iosfwd": "cpp"
     }
 }

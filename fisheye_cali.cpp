@@ -1,38 +1,47 @@
 // fisheye correction refers from
 // https://github.com/astar-ai/calicam_mono/blob/master/calicam_mono.cpp
-
-
 //proportional to latitude.  (equisolid -> equidistant)
 #include <algorithm>
 #include <cstdio>
-#include <dirent.h>
 #include <iostream>
 #include <regex>
+#include <dirent.h>
 #include <opencv4/opencv2/opencv.hpp>
+#include <opencv4/opencv2/calib3d.hpp>
 #include <string>
-#include <time.h>
-#include <opencv4/opencv2/ccalib.hpp>
-#include <opencv4/opencv2/ccalib/omnidir.hpp>
+#include <chrono>
+#include <cmath>
 
 const int BOARDWIDTH = 7;
 const int BOARDHEIGHT = 10;
 
-float SQUARESIZE = 25; 
+float SQUARESIZE = 25;
 
 using namespace std;
 using namespace cv;
+
+vector<string> viewlistname;
 
 inline double MatRowMul(cv::Matx33d m, double x, double y, double z, int r) {
   return m(r,0) * x + m(r,1) * y + m(r,2) * z;
 }
 
-struct CalibSettings
+inline double lerp(double y0, double y1, double x0, double x1, double x)
 {
+    double m = (y1-y0) / (x1-x0);
+    double b = y0;
+    return m * (x-x0) + b;
+}
+
+class CalibSettings
+{
+    public:
     int getFlag()
     {
         int flag = 0;
-        flag |= omnidir::CALIB_USE_GUESS;
-        flag |= omnidir::CALIB_FIX_SKEW;
+        flag |= cv::fisheye::CALIB_RECOMPUTE_EXTRINSIC;
+        flag |= cv::fisheye::CALIB_CHECK_COND;
+        flag |= cv::fisheye::CALIB_FIX_SKEW;
         return flag;
     }
 
@@ -55,6 +64,7 @@ static void calcBoardCornerPositions(Size boardSize, float squareSize, vector<Po
         for (int j = 0; j < boardSize.width; ++j)
             corners.push_back(Point3f(j * squareSize, i * squareSize, 0));
 }
+
 vector<string> getImageList(string path)
 {
     vector<string> imagesName;
@@ -67,10 +77,12 @@ vector<string> getImageList(string path)
                 auto nPos = tmpFileName.find(".jpg");
                 if (nPos != string::npos) {
                     imagesName.push_back(path + '/' + tmpFileName);
+                    viewlistname.push_back(tmpFileName);
                 } else {
                     nPos = tmpFileName.find(".JPG");
                     if (nPos != string::npos)
                         imagesName.push_back(path + '/' + tmpFileName);
+                        viewlistname.push_back(tmpFileName);
                 }
             }
         }
@@ -79,299 +91,105 @@ vector<string> getImageList(string path)
     return imagesName;
 }
 
-double FocalLength(InputArray K, InputArray D, InputArray xi, cv::Size mSize) {
-
-    double fx;
-    double fy;
-    double cx;
-    double cy;
-    double s;
-
-    double k1;
-    double k2;
-    double p1;
-    double p2;
-    if (K.depth() == CV_32F)
-    {
-        Matx33f camMat = K.getMat();
-        fx = camMat(0,0);
-        fy = camMat(1,1);
-        cx = camMat(0,2);
-        cy = camMat(1,2);
-        s  = camMat(0,1);
-    }
-    else
-    {
-        Matx33d camMat = K.getMat();
-        fx = camMat(0,0);
-        fy = camMat(1,1);
-        cx = camMat(0,2);
-        cy = camMat(1,2);
-        s  = camMat(0,1);
-    }
-
-    Vec4d kp = Vec4d::all(0);
-    if (!D.empty())
-        kp = D.depth() == CV_32F ? (Vec4d)*D.getMat().ptr<Vec4f>(): *D.getMat().ptr<Vec4d>();
-    
-    k1 = kp[0];
-    k2 = kp[1];
-    p1 = kp[2];
-    p2 = kp[3];
-
-    double _xi = xi.depth() == CV_32F ? (double)*xi.getMat().ptr<float>() : *xi.getMat().ptr<double>();
-
-    double u = cx;
-    double v = 5.;
-    double x = (u * fy - cx * fy - s * (v - cy)) / (fx * fy);
-    double y = (v - cy) / fy;
-    double e = x;
-    double f = y;
-
-    for (int i = 0; i < 20; ++i) {
-        double r2 = e * e + f * f;
-        double r4 = r2 * r2;
-        double rr = 1. + k1 * r2 + k2 * r4;
-        e = (x - 2. * p1 * e * f - p2 * (r2 + 2 * e * e)) / rr;
-        f = (y - 2. * p2 * e * f - p1 * (r2 + 2 * f * f)) / rr;
-    }
-
-    u = cx;
-    v = mSize.width - 5.;
-    x = (u * fy - cx * fy - s * (v - cy)) / (fx * fy);
-    y = (v - cy) / fy;
-    double e0 = x;
-    double f0 = y;
-
-    for (int i = 0; i < 20; ++i) {
-        double r2 = e0 * e0 + f0 * f0;
-        double r4 = r2 * r2;
-        double rr = 1. + k1 * r2 + k2 * r4;
-        e0 = (x - 2. * p1 * e0 * f0 - p2 * (r2 + 2 * e0 * e0)) / rr;
-        f0 = (y - 2. * p2 * e0 * f0 - p1 * (r2 + 2 * f0 * f0)) / rr;
-    }
-
-    if (fabs(f) > f0) {
-        e = e0;
-        f = -f0;
-    }
-
-    double ef = e * e + f * f;
-    double zx = (_xi + sqrt(1. + (1. - _xi*_xi) * ef)) / (ef + 1.);
-    cv::Vec3d Xc(e * zx, f * zx, zx - _xi);
-    Xc /= norm(Xc);
-
-    f = Xc(1) / (Xc(2) + _xi);
-    return - mSize.height / 2. / f;
-}
-
-
-enum{
-        RECTIFY_PERSPECTIVE         = 1,
-        RECTIFY_CYLINDRICAL         = 2,
-        RECTIFY_LONGLATI            = 3,
-        RECTIFY_STEREOGRAPHIC       = 4,
-        RECTIFY_FISHEYE             = 5
-    };
-
-void mInitUndistortRectifyMap(InputArray K, InputArray D, InputArray xi, InputArray R, InputArray P,
-    const cv::Size& size, int m1type, OutputArray map1, OutputArray map2, int flags)
+cv::Vec2d rad2vec(double r, double theta, double phi, Vec2d f, Vec2d c, Vec4d kp)
 {
-    CV_Assert( m1type == CV_16SC2 || m1type == CV_32F || m1type <=0 );
-    map1.create( size, m1type <= 0 ? CV_16SC2 : m1type );
-    map2.create( size, map1.type() == CV_16SC2 ? CV_16UC1 : CV_32F );
+    double fx = f[0], fy = f[1];
+    double cx = c[0], cy = c[1];
+    
+    double theta2 = theta*theta, theta3 = theta2*theta, theta4 = theta2*theta2, theta5 = theta4*theta,
+        theta6 = theta3*theta3, theta7 = theta6*theta, theta8 = theta4*theta4, theta9 = theta8*theta;
 
+    double theta_d = theta + kp[0]*theta3 + kp[1]*theta5 + kp[2]*theta7 + kp[3]*theta9;
+
+    double inv_r = r > 1e-8 ? 1.0/r : 1;
+    double cdist = r > 1e-8 ? theta_d * inv_r : 1;
+
+    double x_src_norm = r * cos(phi);
+    double y_src_norm = r * sin(phi);
+
+    double x_src = cdist * x_src_norm;
+    double y_src = cdist * y_src_norm;
+
+    return cv::Vec2d(fx*x_src+cx, fy*y_src+cy);
+} 
+
+void fisheye2Equirect(InputArray img, InputArray K, InputArray D, const cv::Size& newsize, const double& aperture, Mat& equirect)
+{
     CV_Assert((K.depth() == CV_32F || K.depth() == CV_64F) && (D.depth() == CV_32F || D.depth() == CV_64F));
     CV_Assert(K.size() == Size(3, 3) && (D.empty() || D.total() == 4));
-    CV_Assert(P.empty()|| (P.depth() == CV_32F || P.depth() == CV_64F));
-    CV_Assert(P.empty() || P.size() == Size(3, 3) || P.size() == Size(4, 3));
-    CV_Assert(R.empty() || (R.depth() == CV_32F || R.depth() == CV_64F));
-    CV_Assert(R.empty() || R.size() == Size(3, 3) || R.total() * R.channels() == 3);
-    CV_Assert(flags == RECTIFY_PERSPECTIVE || flags == RECTIFY_CYLINDRICAL || flags == RECTIFY_LONGLATI
-        || flags == RECTIFY_STEREOGRAPHIC || flags == RECTIFY_FISHEYE);
-    CV_Assert(xi.total() == 1 && (xi.depth() == CV_32F || xi.depth() == CV_64F));
 
     cv::Vec2d f, c;
-    double s;
     if (K.depth() == CV_32F)
     {
         Matx33f camMat = K.getMat();
         f = Vec2f(camMat(0, 0), camMat(1, 1));
         c = Vec2f(camMat(0, 2), camMat(1, 2));
-        s = (double)camMat(0,1);
     }
     else
     {
         Matx33d camMat = K.getMat();
         f = Vec2d(camMat(0, 0), camMat(1, 1));
         c = Vec2d(camMat(0, 2), camMat(1, 2));
-        s = camMat(0,1);
     }
+
+    Mat img_ = img.getMat();
+    Size viewSize = img_.size();
 
     Vec4d kp = Vec4d::all(0);
     if (!D.empty())
         kp = D.depth() == CV_32F ? (Vec4d)*D.getMat().ptr<Vec4f>(): *D.getMat().ptr<Vec4d>();
-    double _xi = xi.depth() == CV_32F ? (double)*xi.getMat().ptr<float>() : *xi.getMat().ptr<double>();
-    Vec2d k = Vec2d(kp[0], kp[1]);
-    Vec2d p = Vec2d(kp[2], kp[3]);
-    cv::Matx33d RR  = cv::Matx33d::eye();
-    if (!R.empty() && R.total() * R.channels() == 3)
+
+    Vec3d p;
+
+    for(int y=0; y< newsize.height; y++)
     {
-        cv::Vec3d rvec;
-        R.getMat().convertTo(rvec, CV_64F);
-        cv::Rodrigues(rvec, RR);
-    }
-    else if (!R.empty() && R.size() == Size(3, 3))
-        R.getMat().convertTo(RR, CV_64F);
+        double y_dst_norm = lerp(-1,1,0,newsize.height, y);
 
-    cv::Matx33d PP = cv::Matx33d::eye();
-    if (!P.empty())
-        P.getMat().colRange(0, 3).convertTo(PP, CV_64F);
-    else
-        PP = K.getMat();
-
-    cv::Matx33d iKR = (PP*RR).inv(cv::DECOMP_SVD);
-    cv::Matx33d iK = PP.inv(cv::DECOMP_SVD);
-    cv::Matx33d iR = RR.inv(cv::DECOMP_SVD);
-
-    if (flags == RECTIFY_PERSPECTIVE)
-    {
-        for (int i = 0; i < size.height; ++i)
+        for(int x=0; x< newsize.width; x++)
         {
-            float* m1f = map1.getMat().ptr<float>(i);
-            float* m2f = map2.getMat().ptr<float>(i);
-            short*  m1 = (short*)m1f;
-            ushort* m2 = (ushort*)m2f;
+            double x_dst_norm = lerp(-1,1,0, newsize.width, x);
+            
+            double longitude = x_dst_norm * CV_PI + CV_PI / 2;
+            double latitude = y_dst_norm * CV_PI / 2;
 
-            double _x = i*iKR(0, 1) + iKR(0, 2),
-                   _y = i*iKR(1, 1) + iKR(1, 2),
-                   _w = i*iKR(2, 1) + iKR(2, 2);
+            double p_x = - cos(latitude) * cos(longitude);
+            double p_y = cos(latitude) * sin(longitude);
+            double p_z = sin(latitude);
+    
+            p = Vec3d(p_x, p_y, p_z);
+            cv::Mat rot = (cv::Mat_<double>(3,3) << 1, 0, 0, 0, 0, -1, 0, 1, 0);
+            cv::Mat pt = rot * p;
+            double p_xz = sqrt(pow(pt.at<double>(0,0), 2)+pow(pt.at<double>(0,2), 2));
+            double theta = atan2(p_xz,pt.at<double>(0,1));
+            double r = ((2 * theta) / aperture);
+            double phi = atan2(pt.at<double>(0,2), pt.at<double>(0,0));
 
-            for(int j = 0; j < size.width; ++j, _x+=iKR(0,0), _y+=iKR(1,0), _w+=iKR(2,0))
+            Vec2d uv = rad2vec(r, theta, phi, f, c, kp);
+
+            if( y > newsize.height / 2 -1 )
             {
-                // project back to unit sphere
-                double r = sqrt(_x*_x + _y*_y + _w*_w);
-                double Xs = _x / r;
-                double Ys = _y / r;
-                double Zs = _w / r;
-                // project to image plane
-                double xu = Xs / (Zs + _xi),
-                    yu = Ys / (Zs + _xi);
-                // add distortion
-                double r2 = xu*xu + yu*yu;
-                double r4 = r2*r2;
-                double xd = (1+k[0]*r2+k[1]*r4)*xu + 2*p[0]*xu*yu + p[1]*(r2+2*xu*xu);
-                double yd = (1+k[0]*r2+k[1]*r4)*yu + p[0]*(r2+2*yu*yu) + 2*p[1]*xu*yu;
-                // to image pixel
-                double u = f[0]*xd + s*yd + c[0];
-                double v = f[1]*yd + c[1];
-
-                if( m1type == CV_16SC2 )
-                {
-                    int iu = cv::saturate_cast<int>(u*cv::INTER_TAB_SIZE);
-                    int iv = cv::saturate_cast<int>(v*cv::INTER_TAB_SIZE);
-                    m1[j*2+0] = (short)(iu >> cv::INTER_BITS);
-                    m1[j*2+1] = (short)(iv >> cv::INTER_BITS);
-                    m2[j] = (ushort)((iv & (cv::INTER_TAB_SIZE-1))*cv::INTER_TAB_SIZE + (iu & (cv::INTER_TAB_SIZE-1)));
-                }
-                else if( m1type == CV_32FC1 )
-                {
-                    m1f[j] = (float)u;
-                    m2f[j] = (float)v;
-                }
+                continue;
             }
-        }
-    }
-    else if(flags == RECTIFY_CYLINDRICAL || flags == RECTIFY_LONGLATI ||
-        flags == RECTIFY_STEREOGRAPHIC || flags == RECTIFY_FISHEYE)
-    {
-        //int offset = size.height/2 -1 ; // TODO
-        for (int i = 0; i < size.height; ++i)
-        {
-            // float* m1f = map1.getMat().ptr<float>(i+offset); // TODO
-            // float* m2f = map2.getMat().ptr<float>(i+offset); // TODO
-            float* m1f = map1.getMat().ptr<float>(i);
-            float* m2f = map2.getMat().ptr<float>(i);
-            short*  m1 = (short*)m1f;
-            ushort* m2 = (ushort*)m2f;
-
-            // for RECTIFY_LONGLATI, theta and h are longittude and latitude
-            double theta = i*iK(0, 1) + iK(0, 2),
-                   h     = i*iK(1, 1) + iK(1, 2);
-
-            for (int j = 0; j < size.width; ++j, theta+=iK(0,0), h+=iK(1,0))
+            else if(y == 255)
             {
-                double _xt = 0.0, _yt = 0.0, _wt = 0.0;
-                if (flags == RECTIFY_CYLINDRICAL)
-                {
-                    //_xt = std::sin(theta);
-                    //_yt = h;
-                    //_wt = std::cos(theta);
-                    _xt = std::cos(theta);
-                    _yt = std::sin(theta);
-                    _wt = h;
-                }
-                else if (flags == RECTIFY_LONGLATI)
-                {
-                    _xt = -std::cos(theta);
-                    _yt = -std::sin(theta) * std::cos(h);
-                    _wt = std::sin(theta) * std::sin(h);
-                }
-                else if (flags == RECTIFY_STEREOGRAPHIC)
-                {
-                    double a = theta*theta + h*h + 4;
-                    double b = -2*theta*theta - 2*h*h;
-                    double c2 = theta*theta + h*h -4;
+                equirect.at<Vec3b>(y,x) = Vec3b(255, 0., 0.);
+            }
+            else
+            {
+                double tx = min(viewSize.width - 1, static_cast<int>(floor(uv[0])));
+                double ty = min(viewSize.height - 1, static_cast<int>(floor(uv[1])));
 
-                    _yt = (-b-std::sqrt(b*b - 4*a*c2))/(2*a);
-                    _xt = theta*(1 - _yt) / 2;
-                    _wt = h*(1 - _yt) / 2;
-                }
-                else if (flags == RECTIFY_FISHEYE){
-                    // iK(r,0) * j + iK(r,1) * i + iK(r,2) * 1.;   r == 0 || 1  , j : x axis, i : y axis
-                    double ee = MatRowMul(iK, j, i, 1., 0); 
-                    double ff = MatRowMul(iK, j, i, 1., 1);
+                double a = uv[0] - tx;
+                double b = uv[1] - ty;
 
-                    double ef = ee * ee + ff * ff;
-                    double zz = (_xi + sqrt(1. + (1. - _xi * _xi) * ef)) / (ef + 1.);
-
-                    _xt = zz * ee;
-                    _yt = zz * ff;
-                    _wt = zz - _xi;
-                }
-                double _x = iR(0,0)*_xt + iR(0,1)*_yt + iR(0,2)*_wt;
-                double _y = iR(1,0)*_xt + iR(1,1)*_yt + iR(1,2)*_wt;
-                double _w = iR(2,0)*_xt + iR(2,1)*_yt + iR(2,2)*_wt;
-
-                double r = sqrt(_x*_x + _y*_y + _w*_w);
-                double Xs = _x / r;
-                double Ys = _y / r;
-                double Zs = _w / r;
-                // project to image plane
-                double xu = Xs / (Zs + _xi),
-                       yu = Ys / (Zs + _xi);
-                // add distortion
-                double r2 = xu*xu + yu*yu;
-                double r4 = r2*r2;
-                double xd = (1+k[0]*r2+k[1]*r4)*xu + 2*p[0]*xu*yu + p[1]*(r2+2*xu*xu);
-                double yd = (1+k[0]*r2+k[1]*r4)*yu + p[0]*(r2+2*yu*yu) + 2*p[1]*xu*yu;
-                // to image pixel
-                double u = f[0]*xd + s*yd + c[0];
-                double v = f[1]*yd + c[1];
-
-                if( m1type == CV_16SC2 )
+                if(tx >= 0 && tx < viewSize.width -1 && ty >=0 && ty < viewSize.height -1)
                 {
-                    // get rid of the floating number (to integer (short))
-                    int iu = cv::saturate_cast<int>(u*cv::INTER_TAB_SIZE);
-                    int iv = cv::saturate_cast<int>(v*cv::INTER_TAB_SIZE);
-                    m1[j*2+0] = (short)(iu >> cv::INTER_BITS);
-                    m1[j*2+1] = (short)(iv >> cv::INTER_BITS);
-                    m2[j] = (ushort)((iv & (cv::INTER_TAB_SIZE-1))*cv::INTER_TAB_SIZE + (iu & (cv::INTER_TAB_SIZE-1)));
-                }
-                else if( m1type == CV_32FC1 )
-                {
-                    m1f[j] = (float)u;
-                    m2f[j] = (float)v;
+                    if(tx == viewSize.width -1) tx-=1;
+                    if(ty == viewSize.height -1) ty-=1;
+
+                    Vec3d c_top = img_.at<Vec3b>(ty+1,tx) * (1. - a) + img_.at<Vec3b>(ty+1,tx+1) * (a); 
+                    Vec3d c_bot = img_.at<Vec3b>(ty,tx) * (1. - a) + img_.at<Vec3b>(ty,tx+1) * (a);
+                    equirect.at<Vec3b>(y,x) = c_bot * (1. - b) + c_top * b;
                 }
             }
         }
@@ -380,6 +198,9 @@ void mInitUndistortRectifyMap(InputArray K, InputArray D, InputArray xi, InputAr
 
 int main(int argc, char** argv)
 {
+    ios::sync_with_stdio(false);
+    cin.tie(NULL);
+
     if (argc < 2) {
         cout << "Usage: " << argv[0] << " <pic path> [square size(mm)]" << endl;
         return 0;
@@ -389,14 +210,13 @@ int main(int argc, char** argv)
         size = argv[2];
         SQUARESIZE = std::stof(size);
     }
-
     string pathDirectory = argv[1];
     auto imagesName = getImageList(pathDirectory);
     
     vector<vector<Point2f>> imagePoints;
     Size imageSize;
     vector<vector<Point3f>> objectPoints;
-
+    vector<Mat> viewlist;
     for (auto image_name : imagesName) {
         Mat view;
         view = imread(image_name.c_str());
@@ -408,86 +228,50 @@ int main(int argc, char** argv)
         if (found) {
             Mat viewGray;
             cvtColor(view, viewGray, COLOR_BGR2GRAY);
-            cornerSubPix(viewGray, pointBuf, Size(11, 11), Size(-1, -1), TermCriteria(TermCriteria::EPS + TermCriteria::COUNT + TermCriteria::MAX_ITER, imagesName.size(), 0.0001));
+            cornerSubPix(viewGray, pointBuf, Size(11, 11), Size(-1, -1), TermCriteria(TermCriteria::EPS + TermCriteria::COUNT + TermCriteria::MAX_ITER, imagesName.size(), 1e-10));
             imagePoints.push_back(pointBuf);
             drawChessboardCorners(view, s.getBoardSize(), Mat(pointBuf), found);
             cout << image_name << endl;
-            // namedWindow("image", WINDOW_NORMAL);
-            // imshow("image", view);
-            // waitKey(0);
+            viewlist.push_back(view);
             vector<Point3f> obj;
             calcBoardCornerPositions(s.getBoardSize(), s.getSquareSize(), obj);
             objectPoints.push_back(obj);
-
         } else {
             cout << image_name << " found corner failed! & removed!" << endl;
         }
     }
-  
-    cv::Mat cameraMatrix, xi, distCoeffs;
-    vector<Mat> rvec;
-    vector<Mat> tvec;
 
-    double rms = omnidir::calibrate(objectPoints, imagePoints, imageSize,cameraMatrix, xi, distCoeffs, rvec, tvec, s.getFlag(), TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, objectPoints.size(), 1e-6));
+    cv::Mat cameraMatrix, xi, distCoeffs;
+
+    vector<Mat> rvec, tvec;
+    
+    Mat mIdx;
+
+    cout << "-------------imageSize--------------" << endl;
+    cout << imageSize << endl;
+
+    double rms = fisheye::calibrate(objectPoints, imagePoints, imageSize,cameraMatrix, distCoeffs, rvec, tvec, s.getFlag(), TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, objectPoints.size(), 1e-10));
     
     cout << "-------------mean Reprojection error--------------" << endl;
     cout << rms << endl;
     cout << "-------------cameraMatrix--------------" << endl;
     cout << cameraMatrix << endl;
-
     cout << "---------------distCoeffs--------------" << endl;
     cout << distCoeffs << endl;
+    
+    Size newsize(1024,512);
+    double aperture = 180. * CV_PI / 180.;
+    
+    Mat srcimg = cv::imread("ex2.JPG");
+    Mat equirect = cv::Mat::zeros(newsize, srcimg.type());
 
-    int idx = 0;
-    for (auto image_name : imagesName) {
-        
-        string imgpath = image_name.c_str();
-        Mat view = imread(imgpath);
-
-        // Mat pano = Mat::zeros(Size(1024,512), view.type());
-        // Size new_size =  pano.size();
-        // Matx33f Knew = Matx33f(new_size.width/CV_PI, 0, 0, 0, new_size.height/CV_PI, 0, 0, 0, 1);
-        
-        Mat pano = Mat::zeros(view.size(), view.type());
-        Mat view2 = pano.clone();
-        Size new_size =  view.size();
-        //for fisheye correction
-        double focal_len = FocalLength(cameraMatrix, distCoeffs, xi, new_size);
-        Matx33f Knew = Matx33f(focal_len, 0, new_size.width /2 -0.5 , 0, focal_len, new_size.height/2 -0.5, 0, 0, 1);
-        //for rectilinear mapping
-        // Matx33f Knew = Matx33f(new_size.width/4, 0, new_size.width /2, 0, new_size.height/4, new_size.height/2, 0, 0, 1);
-        
-        cout << "index " << idx << endl;
-        cout<<Knew<<endl;
-        cout<< view.type()<< endl;
-        cv::Mat map1, map2, R;
-
-        mInitUndistortRectifyMap(cameraMatrix, distCoeffs, xi, R , Knew, new_size, CV_16SC2, map1, map2, RECTIFY_FISHEYE);
-        idx++;
-        auto start_time = clock();
-        cv::remap(view, pano, map1, map2, INTER_LINEAR, BORDER_CONSTANT);
-        auto end_time = clock();
-        cout << "time in While  " << 1000.000*(end_time - start_time) / CLOCKS_PER_SEC << endl<< endl;
-        
-        namedWindow("undist", cv::WINDOW_NORMAL);
-        cv::resize(pano, view2, cv::Size(new_size.width/2, new_size.height/2), 0.5, 0.5);
-        imshow("undist", view2);
-        waitKey(0);
-        
-        std::regex re("IMG_\\d{3,4}");
-        std::smatch match;
-        string imgname;
-        if(std::regex_search(imgpath, match, re))
-        {
-            for (size_t i=0; i<match.size(); i++)
-            {
-                imgname = match[i].str();
-            }
-        }
-        string name = "./result/" + imgname + "_cor.jpg";
-        cout << "written in " << name << endl;
-        cv::imwrite(name, pano);
-    }
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now(); 
+    fisheye2Equirect(srcimg, cameraMatrix, distCoeffs, newsize, aperture, equirect);
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    cout << "elapsed time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "ms" << endl;
+    imshow("test", equirect);
+    imwrite("equirect2.jpg", equirect);
+    waitKey(0);
     
     return 0;
 }
