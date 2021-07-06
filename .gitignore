@@ -37,7 +37,6 @@ fisheye_cali
 dots/
 correction/
 equirect/
-fisheye-low-res/
 fisheye-raw-res/
 tmp-low-res/
 .vscode/
