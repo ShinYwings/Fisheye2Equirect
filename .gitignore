@@ -32,10 +32,13 @@
 *.app
 
 fisheye_cali
+generateLUT
+equisolid2equirect_LUT
+equisolid2equirect_noLUT
 *.jpg
 *.JPG
-dots/
-correction/
+
+result/
 equirect/
 fisheye-raw-res/
 tmp-low-res/

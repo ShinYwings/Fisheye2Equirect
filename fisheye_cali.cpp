@@ -139,8 +139,6 @@ void fisheye2Equirect(InputArray img, InputArray K, InputArray D, const cv::Size
     if (!D.empty())
         kp = D.depth() == CV_32F ? (Vec4d)*D.getMat().ptr<Vec4f>(): *D.getMat().ptr<Vec4d>();
 
-    Vec3d p;
-
     for(int y=0; y< newsize.height; y++)
     {
         double y_dst_norm = lerp(-1,1,0,newsize.height, y);
@@ -156,7 +154,7 @@ void fisheye2Equirect(InputArray img, InputArray K, InputArray D, const cv::Size
             double p_y = cos(latitude) * sin(longitude);
             double p_z = sin(latitude);
     
-            p = Vec3d(p_x, p_y, p_z);
+            Vec3d p = Vec3d(p_x, p_y, p_z);
             cv::Mat rot = (cv::Mat_<double>(3,3) << 1, 0, 0, 0, 0, -1, 0, 1, 0);
             cv::Mat pt = rot * p;
             double p_xz = sqrt(pow(pt.at<double>(0,0), 2)+pow(pt.at<double>(0,2), 2));
@@ -196,13 +194,30 @@ void fisheye2Equirect(InputArray img, InputArray K, InputArray D, const cv::Size
     }
 }
 
+string readImageName(string imgpath)
+{   
+    Mat view = image.getMat();
+    std::regex re("IMG_\\d{3,4}");
+    std::smatch match;
+    string imgname;
+    if(std::regex_search(imgpath, match, re))
+    {
+        for (size_t j=0; j<match.size(); j++)
+        {
+            imgname = match[j].str();
+        }
+    }
+    
+    return imgname;
+}
+
 int main(int argc, char** argv)
 {
     ios::sync_with_stdio(false);
     cin.tie(NULL);
 
     if (argc < 2) {
-        cout << "Usage: " << argv[0] << " <pic path> [square size(mm)]" << endl;
+        cout << "Uge: " << argv[0] << " <pic path> [square size(mm)]" << endl;
         return 0;
     }
     if (argc == 3) {
@@ -211,15 +226,20 @@ int main(int argc, char** argv)
         SQUARESIZE = std::stof(size);
     }
     string pathDirectory = argv[1];
-    auto imagesName = getImageList(pathDirectory);
+    vector<string> imagesName = getImageList(pathDirectory);
     
     vector<vector<Point2f>> imagePoints;
     Size imageSize;
     vector<vector<Point3f>> objectPoints;
-    vector<Mat> viewlist;
-    for (auto image_name : imagesName) {
-        Mat view;
-        view = imread(image_name.c_str());
+    vector<string> viewlist;
+
+    cout << "imagename size : " << imagesName.size() << endl;
+    
+    for (vector<string>::iterator image_name= imagesName.begin(); image_name!=imagesName.end(); image_name++ ) {
+
+        string imgpath = *image_name;
+        Mat view = imread(imgpath);
+        Mat view_clone = view.clone();
 
         imageSize = view.size();
         vector<Point2f> pointBuf;
@@ -231,15 +251,23 @@ int main(int argc, char** argv)
             cornerSubPix(viewGray, pointBuf, Size(11, 11), Size(-1, -1), TermCriteria(TermCriteria::EPS + TermCriteria::COUNT + TermCriteria::MAX_ITER, imagesName.size(), 1e-10));
             imagePoints.push_back(pointBuf);
             drawChessboardCorners(view, s.getBoardSize(), Mat(pointBuf), found);
-            cout << image_name << endl;
-            viewlist.push_back(view);
+            cout << *image_name << endl;
+            viewlist.push_back(*image_name);
+
+            string name = "./original/" + readImageName(imgpath) + "_ori.jpg";
+            cout << "written in " << name << endl;
+            cv::imwrite(name, view);
+
             vector<Point3f> obj;
             calcBoardCornerPositions(s.getBoardSize(), s.getSquareSize(), obj);
             objectPoints.push_back(obj);
         } else {
-            cout << image_name << " found corner failed! & removed!" << endl;
+            cout << *image_name << " found corner failed! & removed!" << endl;
+            imagesName.erase(image_name);
         }
     }
+
+    cout << "Usable images size : " << imagesName.size() << endl;
 
     cv::Mat cameraMatrix, xi, distCoeffs;
 
@@ -250,7 +278,7 @@ int main(int argc, char** argv)
     cout << "-------------imageSize--------------" << endl;
     cout << imageSize << endl;
 
-    double rms = fisheye::calibrate(objectPoints, imagePoints, imageSize,cameraMatrix, distCoeffs, rvec, tvec, s.getFlag(), TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, objectPoints.size(), 1e-10));
+    double rms = fisheye::calibrate(objectPoints, imagePoints, imageSize, cameraMatrix, distCoeffs, rvec, tvec, s.getFlag(), TermCriteria(cv::TermCriteria::COUNT + cv::TermCriteria::EPS, objectPoints.size(), 1e-10));
     
     cout << "-------------mean Reprojection error--------------" << endl;
     cout << rms << endl;
@@ -259,6 +287,37 @@ int main(int argc, char** argv)
     cout << "---------------distCoeffs--------------" << endl;
     cout << distCoeffs << endl;
     
+    vector<Mat> rep_viewlist;
+
+    int idx = 0;
+    for (auto image_name : viewlist) {
+
+        string imgpath = image_name.c_str();
+        Mat view = imread(imgpath);
+
+        imageSize = view.size();
+        vector <Point2f> rep_corner_pts;
+        
+        Mat viewGray;
+        cvtColor(view, viewGray, COLOR_BGR2GRAY);
+        
+        fisheye::projectPoints(cv::Mat(objectPoints[idx]), rep_corner_pts, rvec[idx], tvec[idx], cameraMatrix, distCoeffs);
+        
+        cornerSubPix(viewGray, rep_corner_pts, Size(11, 11), Size(-1, -1), TermCriteria(TermCriteria::EPS + TermCriteria::COUNT + TermCriteria::MAX_ITER, imagesName.size(), 1e-10));
+
+        drawChessboardCorners(view, s.getBoardSize(), rep_corner_pts, true);
+
+        cout << imgpath << endl;
+        rep_viewlist.push_back(view);
+        imshow("view", view);
+        waitKey(0);
+
+        string name = "./reproject/" + readImageName(imgpath) + "_rep.jpg";
+        cout << "written in " << name << endl;
+        cv::imwrite(name, view);
+        idx++;
+    }
+
     Size newsize(1024,512);
     double aperture = 180. * CV_PI / 180.;
     

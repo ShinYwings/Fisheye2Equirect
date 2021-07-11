@@ -1,10 +1,17 @@
 CC=g++
 
-CFLAGS=-std=c++17
+TARGET=%
+OBJECT=%.o
+HEADER=mLUT.h
+CPP=%.cpp
+CFLAGS=-Wall -ansi -pedantic -std=c++17 -pthread
 CVFLAGS=`pkg-config opencv4 --cflags --libs`
+OFLAGS=-lboost_serialization
 
-% : %.cpp
-	$(CC) $(CFLAGS) -o $@ $< $(CVFLAGS)
+all: %
+
+%:%.cpp
+	$(CC) $(CFLAGS) -o $@ $< $(HEADER) $(CVFLAGS) $(OFLAGS)
 
 .PHONY:clean
 
