@@ -35,6 +35,7 @@ fisheye_cali
 generateLUT
 equisolid2equirect_LUT
 equisolid2equirect_noLUT
+equidistant_cali
 *.jpg
 *.JPG
 
