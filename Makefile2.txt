@@ -1,0 +1,50 @@
+CC=g++
+
+TARGET=%
+OBJECT=%.o
+HEADER=mLUT.h
+CPP=%.cpp
+CFLAGS=-Wall -ansi -pedantic -std=c++17 -pthread
+CVFLAGS=`pkg-config opencv4 --cflags --libs`
+OFLAGS=-lboost_serialization
+
+all: %
+
+%:%.cpp
+	$(CC) $(CFLAGS) -o $@ $< $(HEADER) $(CVFLAGS) $(OFLAGS)
+
+.PHONY:clean
+
+clean:
+	rm -f *.o
+
+=================================
+
+EXECUTABLE_NAME=a.out
+CPP=g++
+NVCC=nvcc
+ARCH=sm_86
+INC=-I/usr/local/cuda/include/
+NVCCFLAGS=-Wall -Ofast -fomit-frame-pointer -march=native -funroll-all-loops -fpeel-loops -ftracer -ftree-vectorize
+CPPFLAGS=-Wall -pedantic -Ofast -std=c++17 -fomit-frame-pointer -march=native -flto -funroll-all-loops -fpeel-loops -ftracer -ftree-vectorize
+CVFLAGS=$(shell pkg-config opencv4 --cflags --libs)
+LIBS=-L/usr/local/cuda/lib64 -lcudart -lpthread -lboost_serialization
+CPPSOURCES=test.cpp
+CUSOURCES=$(wildcard *.cu)
+OBJECTS=$(CPPSOURCES:.cpp=.o) $(CUSOURCES:.cu=.o)
+
+all: $(CPPSOURCES) $(CUSOURCES) $(EXECUTABLE_NAME)
+
+$(EXECUTABLE_NAME) : $(OBJECTS)
+	$(CPP) $(CPPFLAGS) -o $@ $(OBJECTS) $(LIBS) -L $(CVFLAGS)
+
+%.o:%.cpp
+	$(CPP) -c $(INC) $(CPPFLAGS) $(CVFLAGS) $(LIBS) -o $@ $< mLUT.h
+
+%.o:%.cu
+	$(NVCC) --use_fast_math -arch=$(ARCH) -O3 -ccbin $(CC) -std=c++17 -c $(INC) -Xcompiler "$(NVCCFLAGS)" $< -o $@
+
+.PHONY:clean
+
+clean:
+	rm -rf *.o

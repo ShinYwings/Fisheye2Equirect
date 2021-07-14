@@ -45,3 +45,6 @@ fisheye-raw-res/
 tmp-low-res/
 .vscode/
 __pycache__/
+tmp/
+python/
+closeup-low-res/

@@ -11,6 +11,7 @@ Thus, I just used to work with the equisolid mapping equation (2fsin(theta/2))
 - fisheye image to equirectangular image in real-time
 
 make generateLUT
+
 ./generateLUT
 make equisolid2equirect_LUT
 ./equisolid2equirect_LUT
