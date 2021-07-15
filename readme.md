@@ -5,11 +5,13 @@
         make all
     ```
 2. Then, created "lut.tab"
+    ```shell
     ./generateLUT.out example.jpg
-
+    ```
 3. Mapping to equirectangular image
+    ```shell
     ./fisheye2equirect.out example.jpg
-
+    ```
 ## previous works in the legacy directory (NOT UPDATED) 
 
 - fisheye image calibration of opencv::fisheye (NOT USE)
