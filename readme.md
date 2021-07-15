@@ -10,7 +10,7 @@
 3. Mapping to equirectangular image
     ./fisheye2equirect.out example.jpg
 
-## previous worked in the legacy directory (NOT UPDATED) 
+## previous works in the legacy directory (NOT UPDATED) 
 
 - fisheye image calibration of opencv::fisheye (NOT USE)
 make fisheye_cali
