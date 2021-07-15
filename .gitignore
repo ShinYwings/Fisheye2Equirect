@@ -33,6 +33,7 @@
 
 *.JPG
 *.out
+*.tab
 
 result/
 equirect/
