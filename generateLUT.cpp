@@ -7,7 +7,7 @@
 #include <string>
 #include <chrono>
 #include <cmath>
-#include "mLUT.h"
+#include "mlut.h"
 
 using namespace std;
 using namespace cv;
@@ -51,7 +51,7 @@ void mGenerateLUT(InputArray img, const cv::Vec2d& f, const cv::Vec2d& c, const 
     Size viewSize = img_.size();
     mlut::mLUT lut;
 
-    for(int y = 0; y < newsize.height; y++)
+    for(int y = 0; y < newsize.height / 2 + 10; y++) // 10 for margin
     {
         double y_dst_norm = lerp(-1,1,0,newsize.height, y);
 
@@ -66,11 +66,6 @@ void mGenerateLUT(InputArray img, const cv::Vec2d& f, const cv::Vec2d& c, const 
             double a = uv[0] - tx;
             double b = uv[1] - ty;
 
-            if( y > newsize.height / 2 + 10 ) // 10 for margin
-            {
-                continue;
-            }
-
             if(tx >= 0 && tx < viewSize.width -1 && ty >=0 && ty < viewSize.height -1)
             {
                 double bl = (1.-a)*(1.-b);
@@ -83,7 +78,7 @@ void mGenerateLUT(InputArray img, const cv::Vec2d& f, const cv::Vec2d& c, const 
             }
         }
     }
-    save(lut, "lut.txt");
+    save(lut, "lut.tab");
 }
 
 int main(int argc, char** argv)
@@ -91,7 +86,10 @@ int main(int argc, char** argv)
     ios::sync_with_stdio(false);
     cin.tie(NULL);
 
-    Mat srcimg = cv::imread("ex2.JPG");
+    std::string filename = argv[1];
+    std::cout << "filename :" << filename << std::endl;
+
+    Mat srcimg = cv::imread(filename);
     Size viewSize = srcimg.size();
     Size newsize(1024,512);
     Mat equirect = cv::Mat::zeros(newsize, srcimg.type());

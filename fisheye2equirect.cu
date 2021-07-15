@@ -43,6 +43,9 @@ int main(int argc, char** argv)
     ios::sync_with_stdio(false);
     cin.tie(NULL);
 
+    std::string filename = argv[1];
+    std::cout << "filename :" << filename << std::endl;
+
     cudaDeviceSetCacheConfig(cudaFuncCachePreferL1);
 	cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeFourByte);
     cv::cuda::printShortCudaDeviceInfo(cv::cuda::getDevice());
@@ -62,16 +65,20 @@ int main(int argc, char** argv)
 
     // Load lookup table
     mlut::mLUT lutt;
-    mlut::load(lutt, "lut.txt");
+    mlut::load(lutt, "lut.tab");
     std::vector<mlut::mappingData*> mapData = lutt.getMaps();
-    if(mapData.empty()) std::cout<<"ABORT! empty vector"<<std::endl;
+    if(mapData.empty())
+    {
+        std::cerr<<"ABORT! empty vector"<<std::endl;
+        exit(0);
+    }
     int lutsize= static_cast<int>(mapData.size());
     
     ////////////////////////////////////////////////////////////
     // CPU version
     {
         // Define input, output image size
-        cv::Mat srcimg = cv::imread("ex2.JPG");
+        cv::Mat srcimg = cv::imread(filename);
         cv::Size viewSize = srcimg.size();
         cv::Mat equirect_host = cv::Mat::zeros(newsize, srcimg.type());
 
@@ -169,7 +176,7 @@ int main(int argc, char** argv)
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     {
         // Define input, output image size
-        cv::Mat srcimg = cv::imread("ex2.JPG");
+        cv::Mat srcimg = cv::imread(filename);
         cv::Mat equirect = cv::Mat::zeros(newsize, srcimg.type());
 
         uchar3* d_fish = upload_image_on_GPU(srcimg);
