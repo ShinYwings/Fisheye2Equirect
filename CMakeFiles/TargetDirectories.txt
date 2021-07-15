@@ -1,3 +1,0 @@
-/home/shin/shinywings/fisheyeCali/CMakeFiles/rebuild_cache.dir
-/home/shin/shinywings/fisheyeCali/CMakeFiles/edit_cache.dir
-/home/shin/shinywings/fisheyeCali/CMakeFiles/MA.dir

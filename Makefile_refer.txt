@@ -36,7 +36,7 @@ OBJECTS=$(CPPSOURCES:.cpp=.o) $(CUSOURCES:.cu=.o)
 all: $(CPPSOURCES) $(CUSOURCES) $(EXECUTABLE_NAME)
 
 $(EXECUTABLE_NAME) : $(OBJECTS)
-	$(CPP) $(CPPFLAGS) -o $@ $(OBJECTS) $(LIBS) -L $(CVFLAGS)
+	$(CPP) $(CPPFLAGS) -o  $@ $(OBJECTS) $(LIBS) -L $(CVFLAGS)
 
 %.o:%.cpp
 	$(CPP) -c $(INC) $(CPPFLAGS) $(CVFLAGS) $(LIBS) -o $@ $< mLUT.h
