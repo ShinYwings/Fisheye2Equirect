@@ -12,7 +12,7 @@
 using namespace std;
 using namespace cv;
 
-// test with CPU
+// test on CPU
 typedef struct{
     int x;
     int y;
@@ -77,7 +77,7 @@ int main(int argc, char** argv)
     ////////////////////////////////////////////////////////////
     // CPU version
     {
-        // Define input, output image size
+        // Declare input, output image size
         cv::Mat srcimg = cv::imread(filename);
         cv::Size viewSize = srcimg.size();
         cv::Mat equirect_host = cv::Mat::zeros(newsize, srcimg.type());
