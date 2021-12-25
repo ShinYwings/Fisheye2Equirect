@@ -21,7 +21,7 @@ make fisheye_cali
 ./fisheye_cali 
 ./fisheye_low_res 25
 ```
-currrently, it is not properly work. 
+currrently, it is not properly working. 
 Thus, I just used to work with the equisolid mapping equation (2fsin(theta/2))
 
 ```shell
