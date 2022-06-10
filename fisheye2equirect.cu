@@ -59,8 +59,8 @@ int main(int argc, char** argv)
     const int threadnum = std::thread::hardware_concurrency();
     std::cout << "thread number : " << threadnum << std::endl;
     
-    const int equirect_w = 1024;
-    const int equirect_h = 512;
+    const int equirect_w = 2048;
+    const int equirect_h = 1024;
     cv::Size newsize(equirect_w, equirect_h);
 
     // Load lookup table
@@ -269,7 +269,7 @@ void equisolid2Equirect_CPU(uchar3_host* img_host, int lutsize_host, int2_host* 
 {
     for(int x_host =0; x_host < lutsize_host; x_host++)
     {
-        unsigned long curr_pos_host = txty_host[x_host].y*1600+txty_host[x_host].x;
+        unsigned long curr_pos_host = txty_host[x_host].y*4160+txty_host[x_host].x;
 
         // if(x_host < 55000 && 54000<x_host)
         //     printf("[HOST] tx, ty : %d, %d and offset : %d \n", txty_host[x_host].x, txty_host[x_host].y, x_host);
@@ -278,21 +278,21 @@ void equisolid2Equirect_CPU(uchar3_host* img_host, int lutsize_host, int2_host* 
         float bl_g_host = img_host[curr_pos_host].y * coefs_host[x_host].x;
         float bl_r_host = img_host[curr_pos_host].z * coefs_host[x_host].x;
         
-        float tl_b_host = img_host[curr_pos_host+1600].x * coefs_host[x_host].y;
-        float tl_g_host = img_host[curr_pos_host+1600].y * coefs_host[x_host].y;
-        float tl_r_host = img_host[curr_pos_host+1600].z * coefs_host[x_host].y;
+        float tl_b_host = img_host[curr_pos_host+4160].x * coefs_host[x_host].y;
+        float tl_g_host = img_host[curr_pos_host+4160].y * coefs_host[x_host].y;
+        float tl_r_host = img_host[curr_pos_host+4160].z * coefs_host[x_host].y;
 
         float br_b_host = img_host[curr_pos_host+1].x * coefs_host[x_host].z;
         float br_g_host = img_host[curr_pos_host+1].y * coefs_host[x_host].z;
         float br_r_host = img_host[curr_pos_host+1].z * coefs_host[x_host].z;
         
-        float tr_b_host = img_host[curr_pos_host+1601].x * coefs_host[x_host].w;
-        float tr_g_host = img_host[curr_pos_host+1601].y * coefs_host[x_host].w;
-        float tr_r_host = img_host[curr_pos_host+1601].z * coefs_host[x_host].w;
+        float tr_b_host = img_host[curr_pos_host+4161].x * coefs_host[x_host].w;
+        float tr_g_host = img_host[curr_pos_host+4161].y * coefs_host[x_host].w;
+        float tr_r_host = img_host[curr_pos_host+4161].z * coefs_host[x_host].w;
 
-        equirect_host[xy_host[x_host].y*1024+xy_host[x_host].x].x = bl_b_host + tl_b_host + br_b_host + tr_b_host;
-        equirect_host[xy_host[x_host].y*1024+xy_host[x_host].x].y = bl_g_host + tl_g_host + br_g_host + tr_g_host;
-        equirect_host[xy_host[x_host].y*1024+xy_host[x_host].x].z = bl_r_host + tl_r_host + br_r_host + tr_r_host;
+        equirect_host[xy_host[x_host].y*2048+xy_host[x_host].x].x = bl_b_host + tl_b_host + br_b_host + tr_b_host;
+        equirect_host[xy_host[x_host].y*2048+xy_host[x_host].x].y = bl_g_host + tl_g_host + br_g_host + tr_g_host;
+        equirect_host[xy_host[x_host].y*2048+xy_host[x_host].x].z = bl_r_host + tl_r_host + br_r_host + tr_r_host;
     } 
 }
 
@@ -302,31 +302,31 @@ __global__ void equisolid2Equirect(uchar3* img_dev, int lutsize_dev, int2* xy_de
     int y = blockDim.y * blockIdx.y + threadIdx.y;
     int offset = x + y * blockDim.x * gridDim.x;
     
-    // img size 1600, 1600
+    // img size 4160, 4160
     // equirect 1024, 512
 
     if (offset < lutsize_dev)
     {
-        unsigned long curr_pos = txty_dev[offset].y*1600+txty_dev[offset].x;
+        unsigned long curr_pos = txty_dev[offset].y*4160+txty_dev[offset].x;
 
         float bl_b = img_dev[curr_pos].x * coefs_dev[offset].x;
         float bl_g = img_dev[curr_pos].y * coefs_dev[offset].x;
         float bl_r = img_dev[curr_pos].z * coefs_dev[offset].x;
         
-        float tl_b = img_dev[curr_pos+1600].x * coefs_dev[offset].y;
-        float tl_g = img_dev[curr_pos+1600].y * coefs_dev[offset].y;
-        float tl_r = img_dev[curr_pos+1600].z * coefs_dev[offset].y;
+        float tl_b = img_dev[curr_pos+4160].x * coefs_dev[offset].y;
+        float tl_g = img_dev[curr_pos+4160].y * coefs_dev[offset].y;
+        float tl_r = img_dev[curr_pos+4160].z * coefs_dev[offset].y;
 
         float br_b = img_dev[curr_pos+1].x * coefs_dev[offset].z;
         float br_g = img_dev[curr_pos+1].y * coefs_dev[offset].z;
         float br_r = img_dev[curr_pos+1].z * coefs_dev[offset].z;
         
-        float tr_b = img_dev[curr_pos+1601].x * coefs_dev[offset].w;
-        float tr_g = img_dev[curr_pos+1601].y * coefs_dev[offset].w;
-        float tr_r = img_dev[curr_pos+1601].z * coefs_dev[offset].w;
+        float tr_b = img_dev[curr_pos+4161].x * coefs_dev[offset].w;
+        float tr_g = img_dev[curr_pos+4161].y * coefs_dev[offset].w;
+        float tr_r = img_dev[curr_pos+4161].z * coefs_dev[offset].w;
 
-        equirect_dev[xy_dev[offset].y*1024+xy_dev[offset].x].x = bl_b + tl_b + br_b + tr_b;
-        equirect_dev[xy_dev[offset].y*1024+xy_dev[offset].x].y = bl_g + tl_g + br_g + tr_g;
-        equirect_dev[xy_dev[offset].y*1024+xy_dev[offset].x].z = bl_r + tl_r + br_r + tr_r;
+        equirect_dev[xy_dev[offset].y*2048+xy_dev[offset].x].x = bl_b + tl_b + br_b + tr_b;
+        equirect_dev[xy_dev[offset].y*2048+xy_dev[offset].x].y = bl_g + tl_g + br_g + tr_g;
+        equirect_dev[xy_dev[offset].y*2048+xy_dev[offset].x].z = bl_r + tl_r + br_r + tr_r;
         }  
 }

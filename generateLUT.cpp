@@ -91,15 +91,20 @@ int main(int argc, char** argv)
 
     Mat srcimg = cv::imread(filename);
     Size viewSize = srcimg.size();
-    Size newsize(1024,512);
+    Size newsize(2048,1024);
     Mat equirect = cv::Mat::zeros(newsize, srcimg.type());
     
     double aperture = 180. * CV_PI / 180.;
-    double cx = 799.5;
-    double cy = 806.5;
-    double fx = 526.1783;
-    double fy = 526.1783;
+    // double cx = 799.5;
+    // double cy = 806.5;
+    // double fx = 526.1783;
+    // double fy = 526.1783;
 
+    double cx = 2085.8;
+    double cy = 2082.5;
+    double fx = 1450.1;
+    double fy = 1450.1;
+    
     Vec2d f(fx, fy);
     Vec2d c(cx, cy);
 
